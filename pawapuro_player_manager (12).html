@@ -184,6 +184,8 @@
   .spec-blue { background: #D6E9F8; color: #0C447C; border: 1px solid #B5D4F4; }
   .spec-red  { background: #FDEEEE; color: #8B1A2E; border: 1px solid #F7C1C1; }
   .spec-gold { background: #FAE0A0; color: #633806; border: 1px solid #FAC775; font-weight: 700; }
+  .spec-bluered { background: #E8D5F5; color: #5B2D8E; border: 1px solid #D4B8F0; }
+  .spec-green { background: #D8F0D8; color: #2D6B2D; border: 1px solid #B8E0B8; }
 
   /* ── PLAYER CARD ── */
   .player-card {
@@ -269,6 +271,8 @@
   .spec-tab.active-blue { background: var(--blue-light); color: var(--blue); font-weight: 700; }
   .spec-tab.active-red  { background: var(--red-light); color: var(--red-dark); font-weight: 700; }
   .spec-tab.active-gold { background: var(--amber-deep); color: var(--amber); font-weight: 700; }
+  .spec-tab.active-bluered { background: #E8D5F5; color: #5B2D8E; font-weight: 700; }
+  .spec-tab.active-green   { background: #D8F0D8; color: #2D6B2D; font-weight: 700; }
   .spec-count { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: currentColor; }
   .spec-count span { color: #fff; }
 
@@ -294,6 +298,10 @@
   .spec-chip-red.active  { border: 1.5px solid var(--red); background: var(--red-light); color: var(--red-dark); font-weight: 700; }
   .spec-chip-gold { border: 1px solid var(--amber-mid); background: var(--amber-light); color: var(--amber); }
   .spec-chip-gold.active { border: 1.5px solid #BA7517; background: var(--amber-deep); color: var(--amber); font-weight: 700; }
+  .spec-chip-bluered { border: 1px solid #D4B8F0; background: #F3EBF9; color: #5B2D8E; }
+  .spec-chip-bluered.active { border: 1.5px solid #5B2D8E; background: #E8D5F5; color: #5B2D8E; font-weight: 700; }
+  .spec-chip-green { border: 1px solid #B8E0B8; background: #EDF7ED; color: #2D6B2D; }
+  .spec-chip-green.active { border: 1.5px solid #2D6B2D; background: #D8F0D8; color: #2D6B2D; font-weight: 700; }
 
   /* ── PITCH CARD ── */
   .pitch-family-card { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; overflow: hidden; }
@@ -674,6 +682,8 @@
         <button class="spec-tab active-blue" id="smtab-blue" onclick="switchSpecMgrTab('blue')">🔵 青特</button>
         <button class="spec-tab" id="smtab-red"  onclick="switchSpecMgrTab('red')">🔴 赤特</button>
         <button class="spec-tab" id="smtab-gold" onclick="switchSpecMgrTab('gold')">🥇 金特</button>
+        <button class="spec-tab" id="smtab-bluered" onclick="switchSpecMgrTab('bluered')">🟣 青赤特</button>
+        <button class="spec-tab" id="smtab-green" onclick="switchSpecMgrTab('green')">🟢 緑特</button>
       </div>
       <!-- 青特パネル -->
       <div id="sm-panel-blue">
@@ -691,6 +701,18 @@
       <div id="sm-panel-gold" style="display:none">
         <div id="sm-gold-pitcher"></div>
         <div id="sm-gold-batter"></div>
+      </div>
+      <!-- 青赤特パネル -->
+      <div id="sm-panel-bluered" style="display:none">
+        <div id="sm-bluered-pitcher"></div>
+        <div id="sm-bluered-batter"></div>
+        <div id="sm-bluered-common"></div>
+      </div>
+      <!-- 緑特パネル -->
+      <div id="sm-panel-green" style="display:none">
+        <div id="sm-green-pitcher"></div>
+        <div id="sm-green-batter"></div>
+        <div id="sm-green-common"></div>
       </div>
     </div>
   </div>
@@ -1113,6 +1135,8 @@ CREATE POLICY "allow_all" ON ppro_data
         <option value="spec_gold">金特（多い順）</option>
         <option value="spec_blue">青特（多い順）</option>
         <option value="spec_red">赤特（多い順）</option>
+        <option value="spec_bluered">青赤特（多い順）</option>
+        <option value="spec_green">緑特（多い順）</option>
       </optgroup>
     </select>
     <span class="filter-count" id="filter-count">0名表示</span>
@@ -1251,10 +1275,18 @@ CREATE POLICY "allow_all" ON ppro_data
         <button class="spec-tab" onclick="switchSpecTab('gold')" id="tab-gold">
           🥇 金特 <span class="spec-count" id="cnt-gold" style="display:none"><span></span></span>
         </button>
+        <button class="spec-tab" onclick="switchSpecTab('bluered')" id="tab-bluered">
+          🟣 青赤特 <span class="spec-count" id="cnt-bluered" style="display:none"><span></span></span>
+        </button>
+        <button class="spec-tab" onclick="switchSpecTab('green')" id="tab-green">
+          🟢 緑特 <span class="spec-count" id="cnt-green" style="display:none"><span></span></span>
+        </button>
       </div>
       <div id="spec-panel-blue"></div>
       <div id="spec-panel-red" style="display:none"></div>
       <div id="spec-panel-gold" style="display:none"></div>
+      <div id="spec-panel-bluered" style="display:none"></div>
+      <div id="spec-panel-green" style="display:none"></div>
     </div>
 
     <div class="form-actions">
@@ -1346,12 +1378,34 @@ const RED_SPECIALS = {
     // 野手専用赤特
     'エラー','三振','扇風機','併殺','ムード×',
   ],
+  common: [],
+};
+const BLUERED_SPECIALS = {
+  pitcher: [
+    // 投手青赤特
+    '荒れ球','ゴロピッチャー','力配分','フライボールピッチャー',
+  ],
+  batter: [
+    // 野手青赤特
+    '悪球打ち',
+  ],
   common: [
-    // 青赤共通特能
-    '全開','悪球打ち','荒れ球','ゴロピッチャー','力配分',
-    'フライボールピッチャー','ポーカーフェイス',
-    // 新規追加
-    '死球集中',
+    // 共通青赤特
+    '全開','ポーカーフェイス','死球集中',
+  ],
+};
+const GREEN_SPECIALS = {
+  pitcher: [
+    // 投手緑特
+    '調子安定','調子極端','速球中心','変化球中心','投球位置左','投球位置右','テンポ◯',
+  ],
+  batter: [
+    // 野手緑特
+    '野手調子安定','野手調子極端','強振多用','ミート多用','積極打法','慎重打法','選球眼','ブンブン丸',
+  ],
+  common: [
+    // 共通緑特
+    '人気者','積極走塁','積極守備','チームプレイ◯','チームプレイ✕','積極盗塁','慎重盗塁','スーパーカートリオ',
   ],
 };
 const GOLD_SPECIALS = {
@@ -1409,9 +1463,11 @@ const BATTER_RANKED = [
 // ══════════ STATE ══════════
 let players = JSON.parse(localStorage.getItem('ppro-players') || '[]');
 let groups  = JSON.parse(localStorage.getItem('ppro-groups') || '["ホロライブ","にじさんじ","ぶいすぽ","アニメ"]');
-let blueSpecMgr  = JSON.parse(localStorage.getItem('ppro-blue')  || 'null') || { pitcher:[...BLUE_SPECIALS.pitcher],  batter:[...BLUE_SPECIALS.batter],  common:[...BLUE_SPECIALS.common] };
-let redSpecMgr   = JSON.parse(localStorage.getItem('ppro-red')   || 'null') || { pitcher:[...RED_SPECIALS.pitcher],   batter:[...RED_SPECIALS.batter],   common:[...RED_SPECIALS.common]  };
-let goldSpecMgr  = JSON.parse(localStorage.getItem('ppro-gold')  || 'null') || { pitcher:[...GOLD_SPECIALS.pitcher],  batter:[...GOLD_SPECIALS.batter] };
+let blueSpecMgr    = JSON.parse(localStorage.getItem('ppro-blue')    || 'null') || { pitcher:[...BLUE_SPECIALS.pitcher],    batter:[...BLUE_SPECIALS.batter],    common:[...BLUE_SPECIALS.common] };
+let redSpecMgr     = JSON.parse(localStorage.getItem('ppro-red')     || 'null') || { pitcher:[...RED_SPECIALS.pitcher],     batter:[...RED_SPECIALS.batter],     common:[...RED_SPECIALS.common]  };
+let goldSpecMgr    = JSON.parse(localStorage.getItem('ppro-gold')    || 'null') || { pitcher:[...GOLD_SPECIALS.pitcher],    batter:[...GOLD_SPECIALS.batter] };
+let blueRedSpecMgr = JSON.parse(localStorage.getItem('ppro-bluered') || 'null') || { pitcher:[...BLUERED_SPECIALS.pitcher], batter:[...BLUERED_SPECIALS.batter], common:[...BLUERED_SPECIALS.common] };
+let greenSpecMgr   = JSON.parse(localStorage.getItem('ppro-green')   || 'null') || { pitcher:[...GREEN_SPECIALS.pitcher],   batter:[...GREEN_SPECIALS.batter],   common:[...GREEN_SPECIALS.common] };
 let pitchFamilies = JSON.parse(localStorage.getItem('ppro-pitches') || 'null') || PITCH_FAMILIES.map(f=>({...f, pitches:[...f.pitches]}));
 let editId = null;
 let currentSpecTab = 'blue';
@@ -1421,7 +1477,7 @@ let formState = emptyForm();
 // ══════════ 永続化：localStorage + JSON export/import ══════════
 function save()         { localStorage.setItem('ppro-players', JSON.stringify(players)); showSaveBanner('💾 自動保存しました'); }
 function saveGroups()   { localStorage.setItem('ppro-groups',  JSON.stringify(groups)); }
-function saveSpecials() { localStorage.setItem('ppro-blue', JSON.stringify(blueSpecMgr)); localStorage.setItem('ppro-red', JSON.stringify(redSpecMgr)); localStorage.setItem('ppro-gold', JSON.stringify(goldSpecMgr)); }
+function saveSpecials() { localStorage.setItem('ppro-blue', JSON.stringify(blueSpecMgr)); localStorage.setItem('ppro-red', JSON.stringify(redSpecMgr)); localStorage.setItem('ppro-gold', JSON.stringify(goldSpecMgr)); localStorage.setItem('ppro-bluered', JSON.stringify(blueRedSpecMgr)); localStorage.setItem('ppro-green', JSON.stringify(greenSpecMgr)); }
 function savePitches()  { localStorage.setItem('ppro-pitches', JSON.stringify(pitchFamilies)); }
 
 // 全データをひとまとめにして localStorage へ
@@ -1452,6 +1508,8 @@ function exportData() {
     blueSpecMgr,
     redSpecMgr,
     goldSpecMgr,
+    blueRedSpecMgr,
+    greenSpecMgr,
     pitchFamilies,
   };
   const json = JSON.stringify(data, null, 2);
@@ -1483,9 +1541,11 @@ function importData(event) {
 
       players       = data.players;
       groups        = data.groups        || groups;
-      blueSpecMgr   = data.blueSpecMgr   || blueSpecMgr;
-      redSpecMgr    = data.redSpecMgr    || redSpecMgr;
-      goldSpecMgr   = data.goldSpecMgr   || goldSpecMgr;
+      blueSpecMgr    = data.blueSpecMgr    || blueSpecMgr;
+      redSpecMgr     = data.redSpecMgr    || redSpecMgr;
+      goldSpecMgr    = data.goldSpecMgr   || goldSpecMgr;
+      blueRedSpecMgr = data.blueRedSpecMgr || blueRedSpecMgr;
+      greenSpecMgr   = data.greenSpecMgr   || greenSpecMgr;
       pitchFamilies = data.pitchFamilies || pitchFamilies;
 
       saveAll();
@@ -1571,19 +1631,19 @@ function syncGroupSelects() {
 
 // ── SPECIAL ──
 const SPEC_CAT_LABELS={pitcher:'投手系',batter:'野手系',common:'共通'};
-const SPEC_COLORS={blue:['#185FA5','#EEF4FD','#B5D4F4'],red:['#A32D2D','#FDEEEE','#F7C1C1'],gold:['#633806','#FAE0A0','#FAC775']};
-function getSpecObj(t){return t==='blue'?blueSpecMgr:t==='red'?redSpecMgr:goldSpecMgr;}
+const SPEC_COLORS={blue:['#185FA5','#EEF4FD','#B5D4F4'],red:['#A32D2D','#FDEEEE','#F7C1C1'],gold:['#633806','#FAE0A0','#FAC775'],bluered:['#5B2D8E','#E8D5F5','#D4B8F0'],green:['#2D6B2D','#D8F0D8','#B8E0B8']};
+function getSpecObj(t){return t==='blue'?blueSpecMgr:t==='red'?redSpecMgr:t==='gold'?goldSpecMgr:t==='bluered'?blueRedSpecMgr:greenSpecMgr;}
 
 function switchSpecMgrTab(type) {
   currentSpecMgrTab=type;
-  ['blue','red','gold'].forEach(t=>{
+  ['blue','red','gold','bluered','green'].forEach(t=>{
     document.getElementById('smtab-'+t).className='spec-tab'+(t===type?' active-'+t:'');
     document.getElementById('sm-panel-'+t).style.display=t===type?'':'none';
   });
 }
 function renderSpecMgr() {
   switchSpecMgrTab(currentSpecMgrTab);
-  ['blue','red','gold'].forEach(type=>{
+  ['blue','red','gold','bluered','green'].forEach(type=>{
     const obj=getSpecObj(type), cats=type==='gold'?['pitcher','batter']:['pitcher','batter','common'];
     const [tx,bg,bd]=SPEC_COLORS[type];
     cats.forEach(cat=>{
@@ -1794,7 +1854,7 @@ function emptyForm() {
     selectedFamilies:[], pitchSelections:{},
     batter:{meet:'',power:'',run:'',arm:'',defense:'',catch:'',dando:''},
     pitcherRanked, batterRanked,
-    blueSpecials:[], redSpecials:[], goldSpecials:[]
+    blueSpecials:[], redSpecials:[], goldSpecials:[], blueRedSpecials:[], greenSpecials:[]
   };
 }
 
@@ -1880,11 +1940,13 @@ function renderList() {
     'defense':     (a,b) => numVal(b.batter?.defense) - numVal(a.batter?.defense),
     'catch':       (a,b) => numVal(b.batter?.catch)   - numVal(a.batter?.catch),
     // 特能
-    'spec_total':  (a,b) => ((b.goldSpecials||[]).length+(b.blueSpecials||b.specials||[]).length+(b.redSpecials||[]).length)
-                           -((a.goldSpecials||[]).length+(a.blueSpecials||a.specials||[]).length+(a.redSpecials||[]).length),
-    'spec_gold':   (a,b) => (b.goldSpecials||[]).length - (a.goldSpecials||[]).length,
-    'spec_blue':   (a,b) => (b.blueSpecials||b.specials||[]).length - (a.blueSpecials||a.specials||[]).length,
-    'spec_red':    (a,b) => (b.redSpecials||[]).length  - (a.redSpecials||[]).length,
+    'spec_total':  (a,b) => ((b.goldSpecials||[]).length+(b.blueSpecials||b.specials||[]).length+(b.redSpecials||[]).length+(b.blueRedSpecials||[]).length+(b.greenSpecials||[]).length)
+                           -((a.goldSpecials||[]).length+(a.blueSpecials||a.specials||[]).length+(a.redSpecials||[]).length+(a.blueRedSpecials||[]).length+(a.greenSpecials||[]).length),
+    'spec_gold':     (a,b) => (b.goldSpecials||[]).length - (a.goldSpecials||[]).length,
+    'spec_blue':     (a,b) => (b.blueSpecials||b.specials||[]).length - (a.blueSpecials||a.specials||[]).length,
+    'spec_red':      (a,b) => (b.redSpecials||[]).length  - (a.redSpecials||[]).length,
+    'spec_bluered':  (a,b) => (b.blueRedSpecials||[]).length - (a.blueRedSpecials||[]).length,
+    'spec_green':    (a,b) => (b.greenSpecials||[]).length - (a.greenSpecials||[]).length,
   };
 
   const fn = sortFns[sort] || sortFns['new'];
@@ -1906,6 +1968,8 @@ function renderList() {
     const blues = pl.blueSpecials||pl.specials||[];
     const reds  = pl.redSpecials||[];
     const golds = pl.goldSpecials||[];
+    const bluereds = pl.blueRedSpecials||[];
+    const greens = pl.greenSpecials||[];
 
     const pitcherStats = isP ? `
       <div style="margin-top:10px">
@@ -1947,7 +2011,7 @@ function renderList() {
     }).join('') : '';
     const rankedRow = (pitcherRankedTags||batterRankedTags) ? `<div class="flex-wrap" style="margin-top:6px">${pitcherRankedTags}${batterRankedTags}</div>` : '';
 
-    const specials = [...golds.map(n=>`<span class="spec-tag spec-gold">🥇 ${n}</span>`), ...blues.map(n=>`<span class="spec-tag spec-blue">${n}</span>`), ...reds.map(n=>`<span class="spec-tag spec-red">${n}</span>`)].join('');
+    const specials = [...golds.map(n=>`<span class="spec-tag spec-gold">🥇 ${n}</span>`), ...blues.map(n=>`<span class="spec-tag spec-blue">${n}</span>`), ...reds.map(n=>`<span class="spec-tag spec-red">${n}</span>`), ...bluereds.map(n=>`<span class="spec-tag spec-bluered">🟣 ${n}</span>`), ...greens.map(n=>`<span class="spec-tag spec-green">🟢 ${n}</span>`)].join('');
 
     return `<div class="player-card">
       <div class="flex-between">
@@ -1981,7 +2045,7 @@ function showRegister(id=null) {
   editId = id;
   if(id) {
     const pl = players.find(p=>p.id===id);
-    formState = JSON.parse(JSON.stringify({...emptyForm(),...pl,blueSpecials:pl.blueSpecials||pl.specials||[],redSpecials:pl.redSpecials||[],goldSpecials:pl.goldSpecials||[]}));
+    formState = JSON.parse(JSON.stringify({...emptyForm(),...pl,blueSpecials:pl.blueSpecials||pl.specials||[],redSpecials:pl.redSpecials||[],goldSpecials:pl.goldSpecials||[],blueRedSpecials:pl.blueRedSpecials||[],greenSpecials:pl.greenSpecials||[]}));
   } else {
     formState = emptyForm();
   }
@@ -2129,9 +2193,9 @@ function renderPitchPanels() {
 
 function renderSpecPanels() {
   const searchQuery = document.getElementById('spec-search')?.value || '';
-  ['blue','red','gold'].forEach(type=>{
-    const specials = type==='blue'?blueSpecMgr : type==='red'?redSpecMgr : goldSpecMgr;
-    const key = type+'Specials';
+  ['blue','red','gold','bluered','green'].forEach(type=>{
+    const specials = getSpecObj(type);
+    const key = type==='bluered'?'blueRedSpecials':type+'Specials';
     const selected = formState[key]||[];
     const grps = [];
     if(showPitcher()) grps.push(['投手系', specials.pitcher||[]]);
@@ -2183,9 +2247,10 @@ function renderSpecPanels() {
 }
 
 function updateSpecTabUI() {
-  ['blue','red','gold'].forEach(t=>{
+  ['blue','red','gold','bluered','green'].forEach(t=>{
     const tab = document.getElementById('tab-'+t);
-    const cnt = (formState[t+'Specials']||[]).length;
+    const specKey = t==='bluered'?'blueRedSpecials':t+'Specials';
+    const cnt = (formState[specKey]||[]).length;
     const cntEl = document.getElementById('cnt-'+t);
     tab.className = 'spec-tab' + (currentSpecTab===t?' active-'+t:'');
     if(cnt>0) { cntEl.style.display=''; cntEl.querySelector('span').textContent=cnt; }
@@ -2312,6 +2377,8 @@ function buildDetailCard(pl) {
   const golds = pl.goldSpecials||[];
   const blues = pl.blueSpecials||pl.specials||[];
   const reds  = pl.redSpecials||[];
+  const bluereds = pl.blueRedSpecials||[];
+  const greens = pl.greenSpecials||[];
 
   const pitcherSection = isP ? `
     <div style="margin-bottom:16px">
@@ -2344,13 +2411,15 @@ function buildDetailCard(pl) {
       ${isB?buildRankedRow(pl.batterRanked, BATTER_RANKED):''}
     </div>` : '';
 
-  const specSection = (golds.length||blues.length||reds.length) ? `
+  const specSection = (golds.length||blues.length||reds.length||bluereds.length||greens.length) ? `
     <div>
       <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.1em;margin-bottom:8px">特殊能力</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px">
         ${golds.map(n=>`<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#FAE0A0;color:#633806;font-weight:700">🥇 ${escHtml(n)}</span>`).join('')}
         ${blues.map(n=>`<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#D6E9F8;color:#0C447C">${escHtml(n)}</span>`).join('')}
         ${reds.map(n=>`<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#FDEEEE;color:#8B1A2E">${escHtml(n)}</span>`).join('')}
+        ${bluereds.map(n=>`<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#E8D5F5;color:#5B2D8E">🟣 ${escHtml(n)}</span>`).join('')}
+        ${greens.map(n=>`<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#D8F0D8;color:#2D6B2D">🟢 ${escHtml(n)}</span>`).join('')}
       </div>
     </div>` : '';
 
@@ -2559,6 +2628,47 @@ function deletePlayer(id) {
   });
   if(changed) save();
 })();
+
+// ── 既存選手の青特・赤特→青赤特・緑特マイグレーション ──
+(function migrateSpecials5cat() {
+  const blueRedNames = new Set([
+    '全開','悪球打ち','荒れ球','ゴロピッチャー','力配分',
+    'フライボールピッチャー','ポーカーフェイス','死球集中',
+    ...(blueRedSpecMgr.pitcher||[]), ...(blueRedSpecMgr.batter||[]), ...(blueRedSpecMgr.common||[])
+  ]);
+  const greenNames = new Set([
+    ...(greenSpecMgr.pitcher||[]), ...(greenSpecMgr.batter||[]), ...(greenSpecMgr.common||[])
+  ]);
+  let changed = false;
+  players.forEach(p => {
+    if(!p.blueRedSpecials) p.blueRedSpecials = [];
+    if(!p.greenSpecials) p.greenSpecials = [];
+
+    // 赤特に入っている青赤特・緑特を移動
+    const reds = p.redSpecials||[];
+    const redToBR = reds.filter(n => blueRedNames.has(n));
+    const redToGR = reds.filter(n => greenNames.has(n));
+    if(redToBR.length || redToGR.length) {
+      p.redSpecials = reds.filter(n => !blueRedNames.has(n) && !greenNames.has(n));
+      redToBR.forEach(n => { if(!p.blueRedSpecials.includes(n)) p.blueRedSpecials.push(n); });
+      redToGR.forEach(n => { if(!p.greenSpecials.includes(n)) p.greenSpecials.push(n); });
+      changed = true;
+    }
+
+    // 青特に入っている青赤特・緑特を移動
+    const blues = p.blueSpecials||p.specials||[];
+    const blueToBR = blues.filter(n => blueRedNames.has(n));
+    const blueToGR = blues.filter(n => greenNames.has(n));
+    if(blueToBR.length || blueToGR.length) {
+      p.blueSpecials = blues.filter(n => !blueRedNames.has(n) && !greenNames.has(n));
+      blueToBR.forEach(n => { if(!p.blueRedSpecials.includes(n)) p.blueRedSpecials.push(n); });
+      blueToGR.forEach(n => { if(!p.greenSpecials.includes(n)) p.greenSpecials.push(n); });
+      changed = true;
+    }
+  });
+  if(changed) save();
+})();
+
 syncGroupSelects();
 renderList();
 
@@ -2616,9 +2726,11 @@ function renderDashboard() {
   const pitchers = dp.filter(p=>p.distinction==='投手').length;
   const batters  = dp.filter(p=>p.distinction==='野手').length;
   const both     = dp.filter(p=>p.distinction==='二刀流').length;
-  const goldCnt  = dp.reduce((s,p)=>(s+(p.goldSpecials||[]).length),0);
-  const blueCnt  = dp.reduce((s,p)=>(s+(p.blueSpecials||p.specials||[]).length),0);
-  const redCnt   = dp.reduce((s,p)=>(s+(p.redSpecials||[]).length),0);
+  const goldCnt    = dp.reduce((s,p)=>(s+(p.goldSpecials||[]).length),0);
+  const blueCnt    = dp.reduce((s,p)=>(s+(p.blueSpecials||p.specials||[]).length),0);
+  const redCnt     = dp.reduce((s,p)=>(s+(p.redSpecials||[]).length),0);
+  const blueRedCnt = dp.reduce((s,p)=>(s+(p.blueRedSpecials||[]).length),0);
+  const greenCnt   = dp.reduce((s,p)=>(s+(p.greenSpecials||[]).length),0);
 
   const tabLabel = dashTab==='pitcher'?'投手':dashTab==='batter'?'野手':'全体';
   el.innerHTML = [
@@ -2628,9 +2740,11 @@ function renderDashboard() {
       [batters, '野手',       '#3B6D11'],
       [both,    '二刀流',     '#854F0B'],
     ] : []),
-    [goldCnt, '金特',  '#BA7517'],
-    [blueCnt, '青特',  '#185FA5'],
-    [redCnt,  '赤特',  '#C41E3A'],
+    [goldCnt,    '金特',   '#BA7517'],
+    [blueCnt,    '青特',   '#185FA5'],
+    [redCnt,     '赤特',   '#C41E3A'],
+    [blueRedCnt, '青赤特', '#5B2D8E'],
+    [greenCnt,   '緑特',   '#2D6B2D'],
   ].map(([n,l,c])=>`
     <div class="dash-stat-card">
       <div class="dash-stat-num" style="color:${c}">${n}</div>
@@ -2983,7 +3097,9 @@ function drawSpecialsRanking() {
     gold:(p.goldSpecials||[]).length,
     blue:(p.blueSpecials||p.specials||[]).length,
     red:(p.redSpecials||[]).length,
-    total:(p.goldSpecials||[]).length+(p.blueSpecials||p.specials||[]).length+(p.redSpecials||[]).length,
+    bluered:(p.blueRedSpecials||[]).length,
+    green:(p.greenSpecials||[]).length,
+    total:(p.goldSpecials||[]).length+(p.blueSpecials||p.specials||[]).length+(p.redSpecials||[]).length+(p.blueRedSpecials||[]).length+(p.greenSpecials||[]).length,
   })).sort((a,b)=>b.total-a.total).slice(0,10);
   const maxTotal=ranked[0]?.total||1;
   el.innerHTML=ranked.map((r,i)=>`
@@ -2994,7 +3110,9 @@ function drawSpecialsRanking() {
         <div style="height:100%;display:flex">
           <div style="width:${(r.gold/maxTotal)*100}%;background:#BA7517;border-radius:8px 0 0 8px"></div>
           <div style="width:${(r.blue/maxTotal)*100}%;background:#185FA5"></div>
-          <div style="width:${(r.red/maxTotal)*100}%;background:#C41E3A;border-radius:0 8px 8px 0"></div>
+          <div style="width:${(r.red/maxTotal)*100}%;background:#C41E3A"></div>
+          <div style="width:${(r.bluered/maxTotal)*100}%;background:#5B2D8E"></div>
+          <div style="width:${(r.green/maxTotal)*100}%;background:#2D6B2D;border-radius:0 8px 8px 0"></div>
         </div>
       </div>
       <span class="dash-rank-val">${r.total}</span>
@@ -3055,8 +3173,8 @@ function drawStarsChart() {
 
 // ── 特能取得数ランキング TOP15（投手・野手別） ──
 function drawAbilityRanking() {
-  const pitcherSpecNames = new Set([...(blueSpecMgr.pitcher||[]), ...(redSpecMgr.pitcher||[]), ...(goldSpecMgr.pitcher||[])]);
-  const batterSpecNames  = new Set([...(blueSpecMgr.batter||[]),  ...(redSpecMgr.batter||[]),  ...(goldSpecMgr.batter||[])]);
+  const pitcherSpecNames = new Set([...(blueSpecMgr.pitcher||[]), ...(redSpecMgr.pitcher||[]), ...(goldSpecMgr.pitcher||[]), ...(blueRedSpecMgr.pitcher||[]), ...(greenSpecMgr.pitcher||[])]);
+  const batterSpecNames  = new Set([...(blueSpecMgr.batter||[]),  ...(redSpecMgr.batter||[]),  ...(goldSpecMgr.batter||[]),  ...(blueRedSpecMgr.batter||[]),  ...(greenSpecMgr.batter||[])]);
 
   const pitcherCounts = {};
   const batterCounts  = {};
@@ -3066,6 +3184,8 @@ function drawAbilityRanking() {
       ...(p.goldSpecials||[]).map(n=>({name:n, type:'gold'})),
       ...(p.blueSpecials||p.specials||[]).map(n=>({name:n, type:'blue'})),
       ...(p.redSpecials||[]).map(n=>({name:n, type:'red'})),
+      ...(p.blueRedSpecials||[]).map(n=>({name:n, type:'bluered'})),
+      ...(p.greenSpecials||[]).map(n=>({name:n, type:'green'})),
     ];
     allSpecs.forEach(({name, type}) => {
       if(pitcherSpecNames.has(name)) {
@@ -3098,7 +3218,7 @@ function renderAbilityRankingList(elId, countsObj) {
   if(!ranked.length) { el.innerHTML=`<div class="dash-empty">データなし</div>`; return; }
 
   const maxCount = ranked[0].count;
-  const typeColors = { gold:'#BA7517', blue:'#185FA5', red:'#C41E3A' };
+  const typeColors = { gold:'#BA7517', blue:'#185FA5', red:'#C41E3A', bluered:'#5B2D8E', green:'#2D6B2D' };
   const typeBg     = { gold:'#FAE0A0', blue:'#D6E9F8', red:'#FDEEEE' };
   const typeLabels = { gold:'🥇', blue:'🔵', red:'🔴' };
 
@@ -3132,9 +3252,11 @@ let cloudConfig     = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || 'null') 
 const DB_KEYS = {
   players:       'players',
   groups:        'groups',
-  blueSpecMgr:   'blue',
-  redSpecMgr:    'red',
-  goldSpecMgr:   'gold',
+  blueSpecMgr:    'blue',
+  redSpecMgr:     'red',
+  goldSpecMgr:    'gold',
+  blueRedSpecMgr: 'bluered',
+  greenSpecMgr:   'green_spec',
   pitchFamilies: 'pitches',
 };
 
@@ -3212,9 +3334,11 @@ async function cloudLoad() {
 
   if(map.players)  { players       = map.players;  localStorage.setItem('ppro-players', JSON.stringify(players)); }
   if(map.groups)   { groups        = map.groups;   localStorage.setItem('ppro-groups',  JSON.stringify(groups)); }
-  if(map.blue)     { blueSpecMgr   = map.blue;     localStorage.setItem('ppro-blue',    JSON.stringify(blueSpecMgr)); }
-  if(map.red)      { redSpecMgr    = map.red;      localStorage.setItem('ppro-red',     JSON.stringify(redSpecMgr)); }
-  if(map.gold)     { goldSpecMgr   = map.gold;     localStorage.setItem('ppro-gold',    JSON.stringify(goldSpecMgr)); }
+  if(map.blue)       { blueSpecMgr    = map.blue;       localStorage.setItem('ppro-blue',    JSON.stringify(blueSpecMgr)); }
+  if(map.red)        { redSpecMgr     = map.red;        localStorage.setItem('ppro-red',     JSON.stringify(redSpecMgr)); }
+  if(map.gold)       { goldSpecMgr    = map.gold;       localStorage.setItem('ppro-gold',    JSON.stringify(goldSpecMgr)); }
+  if(map.bluered)    { blueRedSpecMgr = map.bluered;    localStorage.setItem('ppro-bluered', JSON.stringify(blueRedSpecMgr)); }
+  if(map.green_spec) { greenSpecMgr   = map.green_spec; localStorage.setItem('ppro-green',   JSON.stringify(greenSpecMgr)); }
   if(map.pitches)  { pitchFamilies = map.pitches;  localStorage.setItem('ppro-pitches', JSON.stringify(pitchFamilies)); }
 
   syncGroupSelects();
@@ -3228,9 +3352,11 @@ async function cloudPushAll() {
   const rows = [
     { key:'players',  value:players },
     { key:'groups',   value:groups },
-    { key:'blue',     value:blueSpecMgr },
-    { key:'red',      value:redSpecMgr },
-    { key:'gold',     value:goldSpecMgr },
+    { key:'blue',       value:blueSpecMgr },
+    { key:'red',        value:redSpecMgr },
+    { key:'gold',       value:goldSpecMgr },
+    { key:'bluered',    value:blueRedSpecMgr },
+    { key:'green_spec', value:greenSpecMgr },
     { key:'pitches',  value:pitchFamilies },
   ];
   const { error } = await supabaseClient.from('ppro_data').upsert(rows, { onConflict:'key' });
@@ -3279,9 +3405,11 @@ saveGroups = function() {
 const _origSaveSpecials = saveSpecials;
 saveSpecials = function() {
   _origSaveSpecials();
-  cloudSaveKey('blue', blueSpecMgr);
-  cloudSaveKey('red',  redSpecMgr);
-  cloudSaveKey('gold', goldSpecMgr);
+  cloudSaveKey('blue',       blueSpecMgr);
+  cloudSaveKey('red',        redSpecMgr);
+  cloudSaveKey('gold',       goldSpecMgr);
+  cloudSaveKey('bluered',    blueRedSpecMgr);
+  cloudSaveKey('green_spec', greenSpecMgr);
 };
 const _origSavePitches = savePitches;
 savePitches = function() {
@@ -3388,6 +3516,8 @@ const BULK_COLS = [
   { key:'gold',        label:'金特（カンマ区切り）',  required:false },
   { key:'blue',        label:'青特（カンマ区切り）',  required:false },
   { key:'red',         label:'赤特（カンマ区切り）',  required:false },
+  { key:'bluered',     label:'青赤特（カンマ区切り）', required:false },
+  { key:'green_spec',  label:'緑特（カンマ区切り）',  required:false },
 ];
 
 const SAMPLE_ROWS = [
@@ -3399,7 +3529,7 @@ const SAMPLE_ROWS = [
     pr_taiPinch:'A', pr_taiLeft:'B', pr_tatare:'C', pr_nobi:'A', pr_quick:'B',
     pr_kegaSiyasu:'D', pr_kaifuku:'C',
     br_chance:'', br_taiLeft:'', br_catcher:'', br_steal:'', br_run:'', br_throw:'', br_kegaSiyasu:'', br_kaifuku:'',
-    gold:'ドクターK', blue:'ノビ◯,根性◯', red:'',
+    gold:'ドクターK', blue:'ノビ◯,根性◯', red:'', bluered:'荒れ球', green_spec:'調子安定,速球中心',
   },
   {
     name:'鈴木 花子', distinction:'野手', roles:'外野',
@@ -3409,7 +3539,7 @@ const SAMPLE_ROWS = [
     pr_taiPinch:'', pr_taiLeft:'', pr_tatare:'', pr_nobi:'', pr_quick:'',
     pr_kegaSiyasu:'', pr_kaifuku:'',
     br_chance:'A', br_taiLeft:'B', br_catcher:'', br_steal:'A', br_run:'B', br_throw:'C', br_kegaSiyasu:'D', br_kaifuku:'C',
-    gold:'電光石火', blue:'チャンスメーカー,初球◯', red:'三振',
+    gold:'電光石火', blue:'チャンスメーカー,初球◯', red:'三振', bluered:'悪球打ち', green_spec:'積極打法',
   },
 ];
 
@@ -3433,7 +3563,7 @@ function downloadTemplate() {
     ['コントロール/スタミナ/総変化量','数字（投手のみ）','80'],
     ['ミート～捕球','1〜100 の数値（野手のみ）','85'],
     ['各ランク特能','A/B/C/D/E/F/金特 のいずれか、または空欄','A'],
-    ['金特/青特/赤特','複数ある場合はカンマ区切り','ドクターK,鉄腕'],
+    ['金特/青特/赤特/青赤特/緑特','複数ある場合はカンマ区切り','ドクターK,鉄腕'],
   ];
 
   const wb = XLSX.utils.book_new();
@@ -3537,8 +3667,8 @@ function showBulkPreview() {
   else errEl.style.display='none';
 
   // テーブルヘッダー（主要列のみ表示）
-  const visKeys = ['_row','name','distinction','roles','group','team','stars','speed','b_meet','b_power','gold','blue','_errors'];
-  const visLabels = { _row:'行', name:'氏名', distinction:'区別', roles:'役割', group:'グループ', team:'球団', stars:'★', speed:'球速', b_meet:'ミート', b_power:'パワー', gold:'金特', blue:'青特', _errors:'エラー' };
+  const visKeys = ['_row','name','distinction','roles','group','team','stars','speed','b_meet','b_power','gold','blue','bluered','green_spec','_errors'];
+  const visLabels = { _row:'行', name:'氏名', distinction:'区別', roles:'役割', group:'グループ', team:'球団', stars:'★', speed:'球速', b_meet:'ミート', b_power:'パワー', gold:'金特', blue:'青特', bluered:'青赤特', green_spec:'緑特', _errors:'エラー' };
 
   document.getElementById('bulk-thead').innerHTML = `<tr>${visKeys.map(k=>`<th>${visLabels[k]||k}</th>`).join('')}</tr>`;
 
@@ -3610,9 +3740,11 @@ async function bulkImport() {
       },
       batterRanked,
       // 特能
-      goldSpecials: golds,
-      blueSpecials: row.blue ? row.blue.split(',').map(s=>s.trim()).filter(Boolean) : [],
-      redSpecials:  row.red  ? row.red.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      goldSpecials:    golds,
+      blueSpecials:    row.blue ? row.blue.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      redSpecials:     row.red  ? row.red.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      blueRedSpecials: row.bluered    ? row.bluered.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      greenSpecials:   row.green_spec ? row.green_spec.split(',').map(s=>s.trim()).filter(Boolean) : [],
     };
   });
 
