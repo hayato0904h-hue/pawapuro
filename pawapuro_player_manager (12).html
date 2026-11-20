@@ -872,6 +872,41 @@ CREATE POLICY "allow_all" ON ppro_data
   <button class="page-nav-btn active" id="nav-list"      onclick="switchPage('list')">📋 選手一覧</button>
   <button class="page-nav-btn"        id="nav-dashboard" onclick="switchPage('dashboard')">📊 ダッシュボード</button>
   <button class="page-nav-btn"        id="nav-roulette"  onclick="switchPage('roulette')">🎰 ルーレット</button>
+  <button class="page-nav-btn"        id="nav-draft"     onclick="switchPage('draft')">🏟 チーム編成</button>
+</div>
+
+<!-- ══════════════════ DRAFT (TEAM) PAGE ══════════════════ -->
+<div id="page-draft" class="page">
+  <div style="background:#0F2044;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div>
+      <p style="color:#fff;font-size:16px;font-weight:700">🏟 チーム自動編成</p>
+      <p style="color:rgba(255,255,255,0.45);font-size:11px;margin-top:2px">登録選手を12チームにバランスよく振り分けます</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:rgba(255,255,255,0.6);font-size:12px">チーム数</span>
+        <select id="draft-team-count" style="font-size:13px;padding:5px 8px;width:70px">
+          <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="6">6</option><option value="8">8</option>
+          <option value="10">10</option><option value="12" selected>12</option>
+        </select>
+      </div>
+      <button onclick="runDraft()" style="padding:8px 20px;font-size:14px;font-weight:700;background:#C41E3A;color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit">⚡ 自動編成</button>
+    </div>
+  </div>
+
+  <div class="page-content" style="padding-top:16px">
+    <!-- サマリー -->
+    <div id="draft-summary" style="margin-bottom:16px"></div>
+    <!-- チーム一覧 -->
+    <div id="draft-teams" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px"></div>
+    <!-- 初期メッセージ -->
+    <div id="draft-empty" style="text-align:center;padding:60px 20px;color:var(--text3)">
+      <p style="font-size:36px;margin-bottom:12px">🏟</p>
+      <p style="font-size:15px;font-weight:700;margin-bottom:6px">チーム自動編成</p>
+      <p style="font-size:13px">「⚡ 自動編成」ボタンを押すと、登録選手を投手・野手のバランスと★数を考慮して均等に振り分けます。</p>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════ ROULETTE PAGE ══════════════════ -->
@@ -1924,6 +1959,7 @@ function renderList() {
             ${(pl.roles||[]).map(r=>`<span class="tag role-tag">${r}</span>`).join('')}
             ${pl.group?`<span style="font-size:11px;padding:2px 9px;border-radius:10px;background:#F0EAF8;color:#6B3FA0;border:1px solid #D4B8F0;font-weight:700;white-space:nowrap">🎭 ${pl.group}</span>`:''}
             ${pl.team?`<span class="team-badge">🏟 ${pl.team}</span>`:''}
+            ${pl.createdAt?`<span style="font-size:10px;color:var(--text3);white-space:nowrap">📅 ${new Date(pl.createdAt).toLocaleDateString('ja-JP')}</span>`:''}
           </div>
           ${isP&&isB?`<div class="grid-2">${pitcherStats}${batterStats}</div>`:`${pitcherStats}${batterStats}`}
           ${rankedRow}
@@ -1949,9 +1985,9 @@ function showRegister(id=null) {
   } else {
     formState = emptyForm();
   }
-  ['list','dashboard','roulette','register'].forEach(p=>{ const el=document.getElementById('page-'+p); if(el) el.classList.remove('active'); });
+  ['list','dashboard','draft','roulette','register'].forEach(p=>{ const el=document.getElementById('page-'+p); if(el) el.classList.remove('active'); });
   document.getElementById('page-register').classList.add('active');
-  ['list','dashboard','roulette'].forEach(p=>{ const btn=document.getElementById('nav-'+p); if(btn) btn.classList.remove('active'); });
+  ['list','dashboard','draft','roulette'].forEach(p=>{ const btn=document.getElementById('nav-'+p); if(btn) btn.classList.remove('active'); });
   document.getElementById('submit-btn').textContent = id ? '✓ 更新する' : '✓ 登録する';
   currentSpecTab = 'blue';
   renderForm();
@@ -2240,6 +2276,14 @@ function submitForm() {
   if(!formState.name) { alert('氏名を入力してください'); return; }
   if(!formState.distinction) { alert('区別を選択してください'); return; }
 
+  // キャッチャーA or 金特 → 捕手ロールを自動付与
+  const catcherRank = formState.batterRanked?.br_catcher || '';
+  const catcherGolds = ['球界の頭脳','ささやき戦術','鉄の壁','バズーカ送球','ID野球の申し子'];
+  const hasCatcherGold = (formState.goldSpecials||[]).some(g => catcherGolds.includes(g));
+  if((catcherRank === 'A' || catcherRank === '金特' || hasCatcherGold) && !formState.roles.includes('捕手')) {
+    formState.roles.push('捕手');
+  }
+
   const player = { ...formState, id: editId||String(Date.now()), createdAt: editId?(players.find(p=>p.id===editId)?.createdAt||Date.now()):Date.now() };
   if(editId) players = players.map(p=>p.id===editId?player:p);
   else players.push(player);
@@ -2325,6 +2369,7 @@ function buildDetailCard(pl) {
       <div style="text-align:right">
         ${pl.stars?`<div style="font-family:'Oswald',sans-serif;font-size:24px;font-weight:700;color:#FAE0A0">★${pl.stars}</div>`:''}
         ${pl.team?`<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">🏟 ${escHtml(pl.team)}</div>`:''}
+        ${pl.createdAt?`<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px">📅 ${new Date(pl.createdAt).toLocaleDateString('ja-JP')} 登録</div>`:''}
       </div>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:16px">
@@ -2356,9 +2401,9 @@ function duplicatePlayer(id) {
   setForm(copy);
   setEditId(null);
   // showRegisterを呼ぶ
-  ['list','dashboard','roulette','register'].forEach(p=>{ const el=document.getElementById('page-'+p); if(el) el.classList.remove('active'); });
+  ['list','dashboard','draft','roulette','register'].forEach(p=>{ const el=document.getElementById('page-'+p); if(el) el.classList.remove('active'); });
   document.getElementById('page-register').classList.add('active');
-  ['list','dashboard','roulette'].forEach(p=>{ const btn=document.getElementById('nav-'+p); if(btn) btn.classList.remove('active'); });
+  ['list','dashboard','draft','roulette'].forEach(p=>{ const btn=document.getElementById('nav-'+p); if(btn) btn.classList.remove('active'); });
   document.getElementById('submit-btn').textContent = '✓ 登録する';
   currentSpecTab = 'blue';
   renderForm();
@@ -2369,6 +2414,128 @@ function duplicatePlayer(id) {
 function setForm(data) { formState = { ...emptyForm(), ...data }; }
 function setEditId(id) { editId = id; }
 
+// ══════════ チーム自動編成 ══════════
+const TEAM_COLORS = ['#C41E3A','#185FA5','#3B6D11','#854F0B','#6B3FA0','#1A7A6B','#B55A00','#1D4E89','#7D1C2C','#2E6B1F','#8B1A6B','#2F4858'];
+const TEAM_NAMES  = ['チームA','チームB','チームC','チームD','チームE','チームF','チームG','チームH','チームI','チームJ','チームK','チームL'];
+
+function runDraft() {
+  const teamCount = parseInt(document.getElementById('draft-team-count').value) || 12;
+  if(!players.length) { alert('選手が登録されていません'); return; }
+
+  // 投手系（二刀流含む）・野手系を分離
+  const pitchers = players.filter(p => p.distinction==='投手' || p.distinction==='二刀流');
+  const batters  = players.filter(p => p.distinction==='野手');
+
+  // チーム初期化
+  const teams = Array.from({length:teamCount}, (_,i) => ({
+    id: i,
+    name: TEAM_NAMES[i] || `チーム${i+1}`,
+    color: TEAM_COLORS[i % TEAM_COLORS.length],
+    players: [],
+    pitcherCount: 0,
+    batterCount: 0,
+    pitcherStars: 0,
+    batterStars: 0,
+    totalStars: 0,
+  }));
+
+  // ★数合計が最も少ないチームに配分
+  function snakeDraft(pool, type) {
+    const sorted = [...pool].sort((a,b) => (parseInt(b.stars)||0) - (parseInt(a.stars)||0));
+    sorted.forEach(p => {
+      let target;
+      if(type === 'pitcher') {
+        target = [...teams].sort((a,b) => a.pitcherStars - b.pitcherStars || a.pitcherCount - b.pitcherCount)[0];
+      } else {
+        target = [...teams].sort((a,b) => a.batterStars - b.batterStars || a.batterCount - b.batterCount)[0];
+      }
+      target.players.push(p);
+      const stars = parseInt(p.stars) || 0;
+      if(type === 'pitcher') { target.pitcherCount++; target.pitcherStars += stars; }
+      else                    { target.batterCount++;  target.batterStars  += stars; }
+      target.totalStars += stars;
+    });
+  }
+
+  // 投手（二刀流含む）→ 野手の順で振り分け
+  snakeDraft(pitchers, 'pitcher');
+  snakeDraft(batters,  'batter');
+
+  renderDraftResult(teams);
+}
+
+function renderDraftResult(teams) {
+  const summaryEl = document.getElementById('draft-summary');
+  const teamsEl   = document.getElementById('draft-teams');
+  const emptyEl   = document.getElementById('draft-empty');
+  if(emptyEl) emptyEl.style.display = 'none';
+
+  // サマリー
+  const avgStars = teams.reduce((s,t) => s+t.totalStars, 0) / teams.length;
+  const avgPlayers = teams.reduce((s,t) => s+t.players.length, 0) / teams.length;
+  if(summaryEl) summaryEl.innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="dash-stat-card" style="flex:1;min-width:120px">
+        <div class="dash-stat-num" style="color:#0F2044">${teams.length}</div>
+        <div class="dash-stat-label">チーム数</div>
+      </div>
+      <div class="dash-stat-card" style="flex:1;min-width:120px">
+        <div class="dash-stat-num" style="color:#185FA5">${Math.round(avgPlayers*10)/10}</div>
+        <div class="dash-stat-label">平均人数</div>
+      </div>
+      <div class="dash-stat-card" style="flex:1;min-width:120px">
+        <div class="dash-stat-num" style="color:#BA7517">${Math.round(avgStars)}</div>
+        <div class="dash-stat-label">平均★合計</div>
+      </div>
+    </div>`;
+
+  // チームカード
+  if(!teamsEl) return;
+  teamsEl.innerHTML = teams.map(t => {
+    const pPlayers = t.players.filter(p=>isPitcherType(p));
+    const bPlayers = t.players.filter(p=>isBatterType(p));
+    return `
+    <div style="border:2px solid ${t.color};border-radius:var(--radius);overflow:hidden;background:var(--white);box-shadow:var(--shadow)">
+      <!-- チームヘッダー -->
+      <div style="background:${t.color};padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+        <span style="color:#fff;font-size:15px;font-weight:700;font-family:'Oswald',sans-serif">${escHtml(t.name)}</span>
+        <div style="display:flex;gap:8px">
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.2);color:#fff">★${t.totalStars}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.2);color:#fff">${t.players.length}名</span>
+        </div>
+      </div>
+      <!-- 投手・野手サマリー -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">投手</div>
+          <div style="font-size:16px;font-weight:700;color:#185FA5;font-family:'Oswald',sans-serif">${t.pitcherCount}<span style="font-size:11px;color:var(--text3)">名</span></div>
+          <div style="font-size:11px;color:var(--text3)">★${t.pitcherStars}</div>
+        </div>
+        <div style="flex:1;padding:8px 12px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">野手</div>
+          <div style="font-size:16px;font-weight:700;color:#3B6D11;font-family:'Oswald',sans-serif">${t.batterCount}<span style="font-size:11px;color:var(--text3)">名</span></div>
+          <div style="font-size:11px;color:var(--text3)">★${t.batterStars}</div>
+        </div>
+      </div>
+      <!-- 選手リスト -->
+      <div style="padding:8px 10px;max-height:240px;overflow-y:auto">
+        ${t.players.length === 0 ? `<div style="text-align:center;color:var(--text3);font-size:12px;padding:12px">選手なし</div>` :
+        t.players.sort((a,b)=>{
+          const order={'投手':0,'二刀流':1,'野手':2};
+          return (order[a.distinction]??9)-(order[b.distinction]??9) || (parseInt(b.stars)||0)-(parseInt(a.stars)||0);
+        }).map(p => {
+          const [bgC,txC] = DIST_COLOR[p.distinction]||['#eee','#555'];
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid var(--border)">
+            <span style="font-size:10px;padding:2px 6px;border-radius:8px;background:${bgC};color:${txC};flex-shrink:0">${p.distinction}</span>
+            <span style="font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name)}</span>
+            ${p.stars?`<span style="font-size:12px;color:var(--amber);font-weight:700;flex-shrink:0">★${p.stars}</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function deletePlayer(id) {
   if(!confirm('この選手を削除しますか？')) return;
   players = players.filter(p=>p.id!==id);
@@ -2377,6 +2544,21 @@ function deletePlayer(id) {
 }
 
 // ══════════ INIT ══════════
+// 既存選手にキャッチャーA/金特 or 捕手系金特があれば「捕手」ロールを自動付与
+(function migrateCatcherRole() {
+  const catcherGolds = ['球界の頭脳','ささやき戦術','鉄の壁','バズーカ送球','ID野球の申し子'];
+  let changed = false;
+  players.forEach(p => {
+    const rank = p.batterRanked?.br_catcher || '';
+    const hasGold = (p.goldSpecials||[]).some(g => catcherGolds.includes(g));
+    if((rank==='A' || rank==='金特' || hasGold) && !(p.roles||[]).includes('捕手')) {
+      if(!p.roles) p.roles = [];
+      p.roles.push('捕手');
+      changed = true;
+    }
+  });
+  if(changed) save();
+})();
 syncGroupSelects();
 renderList();
 
@@ -2384,11 +2566,11 @@ renderList();
 let currentPage = 'list';
 function switchPage(page) {
   currentPage = page;
-  ['list','dashboard','roulette','register'].forEach(p => {
+  ['list','dashboard','draft','roulette','register'].forEach(p => {
     const el = document.getElementById('page-'+p);
     if(el) el.classList.toggle('active', p===page);
   });
-  ['list','dashboard','roulette'].forEach(p => {
+  ['list','dashboard','draft','roulette'].forEach(p => {
     const btn = document.getElementById('nav-'+p);
     if(btn) btn.classList.toggle('active', p===page);
   });
@@ -3386,17 +3568,25 @@ async function bulkImport() {
   if(!confirm(`${valid.length}名を登録します。よろしいですか？`)) return;
 
   const now = Date.now();
+  const catcherGolds = ['球界の頭脳','ささやき戦術','鉄の壁','バズーカ送球','ID野球の申し子'];
   const newPlayers = valid.map((row, i) => {
     const pitcherRanked = {};
     PITCHER_RANKED.forEach(r => { pitcherRanked[r.id] = row[r.id] || ''; });
     const batterRanked = {};
     BATTER_RANKED.forEach(r => { batterRanked[r.id] = row[r.id] || ''; });
+    const roles = row.roles ? row.roles.split(',').map(s=>s.trim()).filter(Boolean) : [];
+    const golds = row.gold ? row.gold.split(',').map(s=>s.trim()).filter(Boolean) : [];
+    // キャッチャーA/金特 or 捕手系金特 → 捕手ロール自動付与
+    const catcherRank = batterRanked.br_catcher || '';
+    if((catcherRank==='A' || catcherRank==='金特' || golds.some(g=>catcherGolds.includes(g))) && !roles.includes('捕手')) {
+      roles.push('捕手');
+    }
     return {
       id: String(now + i),
       createdAt: now + i,
       name:         row.name,
       distinction:  row.distinction,
-      roles:        row.roles ? row.roles.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      roles,
       group:        row.group  || '',
       team:         row.team   || '',
       stars:        row.stars  || '',
@@ -3420,7 +3610,7 @@ async function bulkImport() {
       },
       batterRanked,
       // 特能
-      goldSpecials: row.gold ? row.gold.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      goldSpecials: golds,
       blueSpecials: row.blue ? row.blue.split(',').map(s=>s.trim()).filter(Boolean) : [],
       redSpecials:  row.red  ? row.red.split(',').map(s=>s.trim()).filter(Boolean) : [],
     };
@@ -3905,9 +4095,16 @@ function confirmWinner() {
     saveWon();
     showSaveBanner(`✅ ${wonIds.size}名当選済み`);
   } else {
-    rouletteTargets.forEach(t => wonMemberKeys.add(t));
+    rouletteTargets.forEach(t => {
+      wonMemberKeys.add(t);
+      // 当選したメンバーのチェックを外す（全リストから除外）
+      memberLists.forEach(l => {
+        if(l.members.includes(t)) disabledMembers.add(memberKey(l.id, t));
+      });
+    });
     saveWonMembers();
-    showSaveBanner(`✅ ${wonMemberKeys.size}名当選済み`);
+    saveDisabledMembers();
+    showSaveBanner(`✅ ${wonMemberKeys.size}名当選済み（リストから除外しました）`);
   }
   resetRouletteState();
   renderRoulette();
